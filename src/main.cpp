@@ -1,17 +1,20 @@
 #include <cstdio>
-
 #include "raylib.h"
+
+#define BACKGROUND_COLOR SKYBLUE
+#define CANVAS_WIDTH 1600
+#define CANVAS_HEIGHT 900
 
 #ifdef _cplusplus
 extern "C" {
 #endif
 int main(void) {
 	// init app
-	InitWindow(800, 600, "First Raylib App");
+	InitWindow(CANVAS_WIDTH, CANVAS_HEIGHT, "First Raylib App");
 	// run app
 	while (!WindowShouldClose()) {
 		BeginDrawing();
-		ClearBackground(SKYBLUE);
+		ClearBackground(BACKGROUND_COLOR);
 		DrawPixel(400, 300, RED);
 		EndDrawing();
 	}
