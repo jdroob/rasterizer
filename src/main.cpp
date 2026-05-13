@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cmath>
 #include <functional>
+#include <vector>
 #include "raylib.h"
 
 #define BACKGROUND_COLOR SKYBLUE
@@ -71,49 +72,37 @@ void PutPixel(int x, int y, const Color color) {
 	DrawPixel(Cx, Cy, color);
 }
 
-//  void ras_DrawLine(Point_t P0, Point_t P1, Color color) {
-// 	float a = (P1.y - P0.y) / (P1.x - P0.x);
-// 	float b = P0.y - a * P0.x;
-// 	float x = P0.x;
-// 	float dx = P1.x - P0.x > 0 ? 0.1 : -0.1;
-// 	std::function<bool(float)> isDone = [&P1](float x) { return x >= P1.x; };
-// 	if (dx < 0) {
-// 		isDone = [&P1](float x) { return x <= P1.x; };
-// 	}
-// 	std::function<void(float&)> iterate = [](float& x) { ++x; };
-// 	if (dx < 0) {
-// 		iterate = [](float& x) { --x; };
-// 	}
-// 	while (!isDone(x)) {
-// 		float y = a * x + b;
-// 		PutPixel(x, y, color);
-// 		iterate(x);
-// 	}
-//  }
+void Interpolate(int i0, int i1, float d0, float d1, std::vector<float>& values) {
+	float a = (d1 - d0) / (i1 - i0);
+	float d = d0;
+	for (int i=i0; i<=i1; ++i) {
+		values.push_back(d);
+		d += a;
+	}	
+}
 
- void ras_DrawLine(Point_t P0, Point_t P1, Color color) {
-    if (P0.x > P1.x) {
-        std::swap(P0, P1);
-    }
-
-	// vertical line test
-    if (P0.x == P1.x) {
-        float y0 = std::min(P0.y, P1.y);
-        float y1 = std::max(P0.y, P1.y);
-        for (float y = y0; y <= y1; y += 0.1f) {
-            PutPixel((int)P0.x, (int)y, color);
-        }
-        return;
-    }
-
-    float a = (P1.y - P0.y) / (P1.x - P0.x);
-    float y = P0.y;
-    float step = 1.f;
-
-    for (float x=P0.x; x<=P1.x; x+=step) {
-        PutPixel((int)std::round(x), (int)std::round(y), color);
-        y += a;
-    }
+void DrawLine(Point_t P0, Point_t P1, const Color& color) {
+		if (std::fabs(P1.y - P0.y) > std::fabs(P1.x - P0.x)) {
+			// y must be independent var
+			if (P0.y > P1.y) {
+				std::swap(P0, P1);
+			}
+			std::vector<float> xVals;
+			Interpolate(P0.y, P1.y, P0.x, P1.x, xVals);
+			for (int y=P0.y; y<=P1.y; ++y) {
+				PutPixel(xVals[y-P0.y], y, color);
+			}
+		} else {
+			// x must be independent var
+			if (P0.x > P1.x) {
+				std::swap(P0, P1);
+			}
+			std::vector<float> yVals;
+			Interpolate(P0.x, P1.x, P0.y, P1.y, yVals);
+			for (int x=P0.x; x<=P1.x; ++x) {
+				PutPixel(x, yVals[x-P0.x], color);
+			}
+		}
 }
 
 int main(void) {
@@ -123,7 +112,8 @@ int main(void) {
 	while (!WindowShouldClose()) {
 		BeginDrawing();
 		ClearBackground(BACKGROUND_COLOR);
-		ras_DrawLine({400,-200}, {-400,200}, RED);
+		DrawLine({400,-200}, {-400,200}, RED);
+		DrawLine({-50,-200}, {60,240}, YELLOW);
 		EndDrawing();
 	}
 	// close app
