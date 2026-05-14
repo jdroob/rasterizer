@@ -73,6 +73,10 @@ void PutPixel(int x, int y, const Color color) {
 }
 
 void Interpolate(int i0, int i1, float d0, float d1, std::vector<float>& values) {
+  if (i0 == i1) {
+		values.push_back(d0);
+		return;
+	}	
 	float a = (d1 - d0) / (i1 - i0);
 	float d = d0;
 	for (int i=i0; i<=i1; ++i) {
@@ -105,15 +109,65 @@ void DrawLine(Point_t P0, Point_t P1, const Color& color) {
 		}
 }
 
+void FillTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color) {
+	// Sort the vertices by y coordinate ascending (P0, P1, P2)
+	if (P0.y > P1.y) std::swap(P0, P1);
+	if (P0.y > P2.y) std::swap(P0, P2);
+	if (P1.y > P2.y) std::swap(P1, P2);
+
+	// Compute the x coordinates of the triangle edges at each y coordinate
+	std::vector<float> x01; Interpolate(P0.y, P1.y, P0.x, P1.x, x01);
+	std::vector<float> x12; Interpolate(P1.y, P2.y, P1.x, P2.x, x12);
+	std::vector<float> x02; Interpolate(P0.y, P2.y, P0.x, P2.x, x02); x02.pop_back();
+	std::vector<float> x012 = x01;
+	x012.insert(x012.end(), x12.begin(), x12.end());
+
+	// Determine which is left and which is right
+	std::vector<float> *xLeft, *xRight;
+	int m = x02.size() / 2;
+	if (x02[m] < x012[m]) {
+		xLeft = &x02;
+		xRight = &x012;
+	} else {
+		xLeft = &x012;
+		xRight = &x02;
+	}
+	for (int y=P0.y; y<= P2.y; ++y) {
+		for (int x=(*xLeft)[y-P0.y]; x<=(*xRight)[y-P0.y]; ++x) {
+			PutPixel(x, y, color);
+		}
+	}
+}
+
+void DrawWireFrameTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color) {
+	DrawLine(P0, P1, color);
+	DrawLine(P1, P2, color);
+	DrawLine(P2, P0, color);
+}
+
+void DrawFilledTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color) {
+	FillTriangle(P0, P1, P2, color);
+}
+
 int main(void) {
 	// init app
-	InitWindow(CANVAS_WIDTH, CANVAS_HEIGHT, "First Raylib App");
+	InitWindow(CANVAS_WIDTH, CANVAS_HEIGHT, "Rasterizer");
 	// run app
 	while (!WindowShouldClose()) {
 		BeginDrawing();
 		ClearBackground(BACKGROUND_COLOR);
-		DrawLine({400,-200}, {-400,200}, RED);
-		DrawLine({-50,-200}, {60,240}, YELLOW);
+		DrawFilledTriangle(
+			{-200, 250},
+			{200, 50},
+			{20, 250},
+			RED
+		);
+		DrawWireFrameTriangle(
+			{200, -250},
+			{-200, -50},
+			{-20, -250},
+			BLACK
+		);
 		EndDrawing();
 	}
 	// close app
