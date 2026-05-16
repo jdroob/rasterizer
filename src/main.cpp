@@ -57,6 +57,11 @@
 	float x, y;
  };
 
+ struct Vertex_t {
+	Point_t location;
+	float hue;
+ };
+
  Color operator*(float h, const Color& color) {
 	return (Color){
 		BOUND_COLOR(h * color.r),
@@ -120,8 +125,11 @@ void DrawLine(Point_t P0, Point_t P1, const Color& color) {
 		}
 }
 
-void FillTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color, float h0, float h1, float h2) {
+void FillTriangle(Vertex_t V0, Vertex_t V1, Vertex_t V2, const Color& color) {
 	// Sort the vertices by y coordinate ascending (P0, P1, P2)
+	Point_t P0 = V0.location; float h0 = V0.hue;
+	Point_t P1 = V1.location; float h1 = V1.hue;
+	Point_t P2 = V2.location; float h2 = V2.hue;
 	if (P0.y > P1.y) std::swap(P0, P1);
 	if (P0.y > P2.y) std::swap(P0, P2);
 	if (P1.y > P2.y) std::swap(P1, P2);
@@ -173,8 +181,8 @@ void DrawWireFrameTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& colo
 	DrawLine(P2, P0, color);
 }
 
-void DrawFilledTriangle(Point_t P0, Point_t P1, Point_t P2, float f0, float f1, float f2, const Color& color) {
-	FillTriangle(P0, P1, P2, color, f0, f1, f2);
+void DrawFilledTriangle(Vertex_t V0, Vertex_t V1, Vertex_t V2, const Color& color) {
+	FillTriangle(V0, V1, V2, color);
 }
 
 int main(void) {
@@ -184,25 +192,16 @@ int main(void) {
 	while (!WindowShouldClose()) {
 		BeginDrawing();
 		ClearBackground(BACKGROUND_COLOR);
-		DrawFilledTriangle(
-			{-200, 250},
-			{200, 50},
-			{20, 250},
-			0.8f, 0.4f, 0.2f,
-			RED
-		);
+		Vertex_t V0 = {{-200, 250}, 0.8f};
+		Vertex_t V1 = {{200, 50}, 0.4f};
+		Vertex_t V2 = {{20, 250}, 0.2f};
+		DrawFilledTriangle(V0, V1, V2, RED);
 		DrawWireFrameTriangle(
-			{-200, 250},
-			{200, 50},
-			{20, 250},
+			reinterpret_cast<const Point_t&>(V0), 
+			reinterpret_cast<const Point_t&>(V1), 
+			reinterpret_cast<const Point_t&>(V2), 
 			BLACK
 		);
-		// DrawWireFrameTriangle(
-		// 	{200, -250},
-		// 	{-200, -50},
-		// 	{-20, -250},
-		// 	BLACK
-		// );
 		EndDrawing();
 	}
 	// close app
