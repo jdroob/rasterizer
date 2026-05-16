@@ -8,6 +8,8 @@
 #define CANVAS_WIDTH 1600
 #define CANVAS_HEIGHT 900
 
+#define BOUND_COLOR(colorChannel) (unsigned char)((colorChannel) > 255 ? 255 : colorChannel)
+
 /**
  * Rasterization Notes:
  *  Let's get the line math out of the way:
@@ -54,6 +56,15 @@
  struct Point_t {
 	float x, y;
  };
+
+ Color operator*(float h, const Color& color) {
+	return (Color){
+		BOUND_COLOR(h * color.r),
+		BOUND_COLOR(h * color.g),
+		BOUND_COLOR(h * color.b),
+		color.a
+	};
+ }
 
 int boundX(int x) {
 	if (x < 0) return 0;
@@ -109,7 +120,7 @@ void DrawLine(Point_t P0, Point_t P1, const Color& color) {
 		}
 }
 
-void FillTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color) {
+void FillTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color, float h0, float h1, float h2) {
 	// Sort the vertices by y coordinate ascending (P0, P1, P2)
 	if (P0.y > P1.y) std::swap(P0, P1);
 	if (P0.y > P2.y) std::swap(P0, P2);
@@ -117,24 +128,41 @@ void FillTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color) {
 
 	// Compute the x coordinates of the triangle edges at each y coordinate
 	std::vector<float> x01; Interpolate(P0.y, P1.y, P0.x, P1.x, x01);
+	std::vector<float> h01; Interpolate(P0.y, P1.y, h0, h1, h01);
 	std::vector<float> x12; Interpolate(P1.y, P2.y, P1.x, P2.x, x12);
+	std::vector<float> h12; Interpolate(P1.y, P2.y, h1, h2, h12);
 	std::vector<float> x02; Interpolate(P0.y, P2.y, P0.x, P2.x, x02); x02.pop_back();
+	std::vector<float> h02; Interpolate(P0.y, P2.y, h0, h2, h02); h02.pop_back();
 	std::vector<float> x012 = x01;
+	std::vector<float> h012 = h01;
 	x012.insert(x012.end(), x12.begin(), x12.end());
+	h012.insert(h012.end(), h12.begin(), h12.end());
 
 	// Determine which is left and which is right
 	std::vector<float> *xLeft, *xRight;
+	std::vector<float> *hLeft, *hRight;
 	int m = x02.size() / 2;
 	if (x02[m] < x012[m]) {
 		xLeft = &x02;
+		hLeft = &h02;
 		xRight = &x012;
+		hRight = &h012;
 	} else {
 		xLeft = &x012;
+		hLeft = &h012;
 		xRight = &x02;
+		hRight = &h02;
 	}
 	for (int y=P0.y; y<= P2.y; ++y) {
-		for (int x=(*xLeft)[y-P0.y]; x<=(*xRight)[y-P0.y]; ++x) {
-			PutPixel(x, y, color);
+		int xL = (*xLeft)[y-P0.y];
+		float hL = (*hLeft)[y-P0.y];
+		int xR = (*xRight)[y-P0.y];
+		float hR = (*hRight)[y-P0.y];
+		std::vector<float> hSegment; Interpolate(xL, xR, hL, hR, hSegment);
+		for (int x=xL; x<=xR; ++x) {
+			float h = hSegment[x-xL];
+			Color shadedColor = h * color;
+			PutPixel(x, y, shadedColor);
 		}
 	}
 }
@@ -145,8 +173,8 @@ void DrawWireFrameTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& colo
 	DrawLine(P2, P0, color);
 }
 
-void DrawFilledTriangle(Point_t P0, Point_t P1, Point_t P2, const Color& color) {
-	FillTriangle(P0, P1, P2, color);
+void DrawFilledTriangle(Point_t P0, Point_t P1, Point_t P2, float f0, float f1, float f2, const Color& color) {
+	FillTriangle(P0, P1, P2, color, f0, f1, f2);
 }
 
 int main(void) {
@@ -160,14 +188,21 @@ int main(void) {
 			{-200, 250},
 			{200, 50},
 			{20, 250},
+			0.8f, 0.4f, 0.2f,
 			RED
 		);
 		DrawWireFrameTriangle(
-			{200, -250},
-			{-200, -50},
-			{-20, -250},
+			{-200, 250},
+			{200, 50},
+			{20, 250},
 			BLACK
 		);
+		// DrawWireFrameTriangle(
+		// 	{200, -250},
+		// 	{-200, -50},
+		// 	{-20, -250},
+		// 	BLACK
+		// );
 		EndDrawing();
 	}
 	// close app
