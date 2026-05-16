@@ -7,7 +7,7 @@ OBJS=$(patsubst src/%.cpp,obj/%.o,$(SRCS))
 
 build: $(OBJS)
 	@mkdir -p bin
-	$(CPP) $(OBJS) $(CPPFLAGS) $(LDFLAGS) -o bin/cgfs
+	$(CPP) $(OBJS) $(CPPFLAGS) $(LDFLAGS) -o bin/ras
 
 obj/%.o: src/%.cpp
 	@mkdir -p obj
