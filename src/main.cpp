@@ -7,8 +7,13 @@
 #define BACKGROUND_COLOR SKYBLUE
 #define CANVAS_WIDTH 1600
 #define CANVAS_HEIGHT 900
+#define VIEWPORT_WIDTH 2.f
+#define VIEWPORT_HEIGHT 2.f
+#define D 1
 
 #define BOUND_COLOR(colorChannel) (unsigned char)((colorChannel) > 255 ? 255 : colorChannel)
+#define VIEWPORT2CANVAS_X(x) ((x) * (CANVAS_WIDTH / VIEWPORT_WIDTH))
+#define VIEWPORT2CANVAS_Y(y) ((y) * (CANVAS_HEIGHT / VIEWPORT_HEIGHT))
 
 /**
  * Rasterization Notes:
@@ -54,13 +59,43 @@
  */
 
  struct Point_t {
-	float x, y;
+	float x, y, z;
  };
 
  struct Vertex_t {
 	Point_t location;
 	float hue;
  };
+
+ Point_t viewportToCanvas(const float& x, const float& y) {
+	/**
+	 * Scale viewport coordinates to canvas (screen) coordinates.
+	 */
+	return {
+		VIEWPORT2CANVAS_X(x),
+		VIEWPORT2CANVAS_Y(y),
+		D  // dummy
+	};
+ }
+
+ Point_t projectVertex(const Vertex_t& V) {
+	/**
+	 * Project vertex from scene (3D world)
+	 * onto 2D viewport.
+	 * 
+	 * P`.x = P.x * (D / P.z)
+	 * P`.y = P.y * (D / P.z)
+	 * 
+	 * Then, scale 2D coordinates from 
+	 * viewport to canvas by calling
+	 * viewportToCanvas().
+	 */
+	const Point_t& P = V.location;
+	return viewportToCanvas(
+		(P.x * (D / P.z)), 
+		(P.y * (D / P.z))
+	);
+ }
 
  Color operator*(float h, const Color& color) {
 	return (Color){
@@ -102,6 +137,9 @@ void Interpolate(int i0, int i1, float d0, float d1, std::vector<float>& values)
 }
 
 void DrawLine(Point_t P0, Point_t P1, const Color& color) {
+		/**
+		 * Assumes (canvas) screen coordinate inputs.
+		 */
 		if (std::fabs(P1.y - P0.y) > std::fabs(P1.x - P0.x)) {
 			// y must be independent var
 			if (P0.y > P1.y) {
@@ -126,6 +164,9 @@ void DrawLine(Point_t P0, Point_t P1, const Color& color) {
 }
 
 void FillTriangle(Vertex_t V0, Vertex_t V1, Vertex_t V2, const Color& color) {
+	/**
+	 * Assumes (canvas) screen coordinate inputs.
+	 */
 	// Sort the vertices by y coordinate ascending (P0, P1, P2)
 	Point_t P0 = V0.location; float h0 = V0.hue;
 	Point_t P1 = V1.location; float h1 = V1.hue;
@@ -189,19 +230,49 @@ int main(void) {
 	// init app
 	InitWindow(CANVAS_WIDTH, CANVAS_HEIGHT, "Rasterizer");
 	// run app
+
+	// 3 vertices of a triangle
+	// Note: this triangle uses screen coordinates; D is meaningless
+	// Vertex_t V0 = {{-200, 250, D}, 0.8f};
+	// Vertex_t V1 = {{200, 50, D}, 0.4f};
+	// Vertex_t V2 = {{20, 250, D}, 0.2f};
+
+	// 8 vertices of a cube
+	Vertex_t vA_front = {{-1, 1, 2}, 1.f};
+	Vertex_t vB_front = {{1, 1, 2}, 1.f};
+	Vertex_t vC_front = {{1, -1, 2}, 1.f};
+	Vertex_t vD_front = {{-1, -1, 2}, 1.f};
+	Vertex_t vA_back = {{-1, 1, 3}, 1.f};
+	Vertex_t vB_back = {{1, 1, 3}, 1.f};
+	Vertex_t vC_back = {{1, -1, 3}, 1.f};
+	Vertex_t vD_back = {{-1, -1, 3}, 1.f};
+
 	while (!WindowShouldClose()) {
 		BeginDrawing();
 		ClearBackground(BACKGROUND_COLOR);
-		Vertex_t V0 = {{-200, 250}, 0.8f};
-		Vertex_t V1 = {{200, 50}, 0.4f};
-		Vertex_t V2 = {{20, 250}, 0.2f};
-		DrawFilledTriangle(V0, V1, V2, RED);
-		DrawWireFrameTriangle(
-			reinterpret_cast<const Point_t&>(V0), 
-			reinterpret_cast<const Point_t&>(V1), 
-			reinterpret_cast<const Point_t&>(V2), 
-			BLACK
-		);
+		// edges connecting front vertices
+		DrawLine(projectVertex(vA_front), projectVertex(vB_front), BLUE);
+		DrawLine(projectVertex(vB_front), projectVertex(vC_front), BLUE);
+		DrawLine(projectVertex(vC_front), projectVertex(vD_front), BLUE);
+		DrawLine(projectVertex(vD_front), projectVertex(vA_front), BLUE);
+		// edges connecting back vertices
+		DrawLine(projectVertex(vA_back), projectVertex(vB_back), RED);
+		DrawLine(projectVertex(vB_back), projectVertex(vC_back), RED);
+		DrawLine(projectVertex(vC_back), projectVertex(vD_back), RED);
+		DrawLine(projectVertex(vD_back), projectVertex(vA_back), RED);
+		// front to back edges
+		DrawLine(projectVertex(vA_front), projectVertex(vA_back), GREEN);
+		DrawLine(projectVertex(vB_front), projectVertex(vB_back), GREEN);
+		DrawLine(projectVertex(vC_front), projectVertex(vC_back), GREEN);
+		DrawLine(projectVertex(vD_front), projectVertex(vD_back), GREEN);
+		// DrawFilledTriangle(V0, V1, V2, RED);
+		// DrawWireFrameTriangle(
+		// 	reinterpret_cast<const Point_t&>(V0), 
+		// 	reinterpret_cast<const Point_t&>(V1), 
+		// 	reinterpret_cast<const Point_t&>(V2), 
+		// 	BLACK
+		// );
+
 		EndDrawing();
 	}
 	// close app
