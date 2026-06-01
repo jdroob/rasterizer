@@ -15,6 +15,10 @@
 #define VIEWPORT2CANVAS_X(x) ((x) * (CANVAS_WIDTH / VIEWPORT_WIDTH))
 #define VIEWPORT2CANVAS_Y(y) ((y) * (CANVAS_HEIGHT / VIEWPORT_HEIGHT))
 
+// Translate from Cartesian coordinates to screen coordinates
+#define CANVAS2SCREEN_X(x) ((x) + CANVAS_WIDTH / 2)
+#define CANVAS2SCREEN_Y(y) (-(y) + CANVAS_HEIGHT / 2)
+
 /**
  * Rasterization Notes:
  *  Let's get the line math out of the way:
@@ -59,12 +63,24 @@
  */
 
  struct Point_t {
-	float x, y, z;
+		float x, y, z;
  };
 
+ typedef Point_t Vector_t;
+
  struct Vertex_t {
-	Point_t location;
-	float hue;
+		Point_t location;
+		float hue;
+		Vertex_t operator+(const Vector_t& rhs) {
+			return {
+							{
+								location.x + rhs.x, 
+								location.y + rhs.y, 
+								location.z + rhs.z
+							}, 
+							hue
+						};
+		}
  };
 
  Point_t viewportToCanvas(const float& x, const float& y) {
@@ -116,11 +132,10 @@ int boundY(int y) {
 	if (y >= CANVAS_HEIGHT) return CANVAS_HEIGHT - 1;
 	return y;
 }
-void PutPixel(int x, int y, const Color color) {
-	// Translate from Cartesian coordinates to screen coordinates
-	int Cx = boundX(x + CANVAS_WIDTH / 2);
-	int Cy = boundY((-y) + CANVAS_HEIGHT / 2);
-	DrawPixel(Cx, Cy, color);
+void PutPixel(int Cx, int Cy, const Color color) {
+	int Sx = boundX(CANVAS2SCREEN_X(Cx));
+	int Sy = boundY(CANVAS2SCREEN_Y(Cy));
+	DrawPixel(Sx, Sy, color);
 }
 
 void Interpolate(int i0, int i1, float d0, float d1, std::vector<float>& values) {
@@ -138,7 +153,7 @@ void Interpolate(int i0, int i1, float d0, float d1, std::vector<float>& values)
 
 void DrawLine(Point_t P0, Point_t P1, const Color& color) {
 		/**
-		 * Assumes (canvas) screen coordinate inputs.
+		 * Assumes canvas coordinate inputs.
 		 */
 		if (std::fabs(P1.y - P0.y) > std::fabs(P1.x - P0.x)) {
 			// y must be independent var
@@ -165,7 +180,7 @@ void DrawLine(Point_t P0, Point_t P1, const Color& color) {
 
 void FillTriangle(Vertex_t V0, Vertex_t V1, Vertex_t V2, const Color& color) {
 	/**
-	 * Assumes (canvas) screen coordinate inputs.
+	 * Assumes canvas coordinate inputs.
 	 */
 	// Sort the vertices by y coordinate ascending (P0, P1, P2)
 	Point_t P0 = V0.location; float h0 = V0.hue;
@@ -226,13 +241,109 @@ void DrawFilledTriangle(Vertex_t V0, Vertex_t V1, Vertex_t V2, const Color& colo
 	FillTriangle(V0, V1, V2, color);
 }
 
+struct Triangle_t {
+	unsigned V0;
+	unsigned V1;
+	unsigned V2;
+	Color color;
+};
+
+struct Shape3D_t {
+	// virtual void translate(const Vector_t& translationVec) = 0;
+	// virtual void draw() = 0;
+	std::vector<Vertex_t> vertices;
+	std::vector<Triangle_t> triangles;
+};
+
+enum Vertex_e : int {
+	_A,
+	_B,
+	_C,
+	_D,
+	_E,
+	_F,
+	_G,
+	_H
+};
+
+struct Cube_t : Shape3D_t {
+public:
+	Cube_t(
+		Vertex_t frontTopLeft,
+		Vertex_t frontTopRight,
+		Vertex_t frontBottomRight,
+		Vertex_t frontBottomLeft,
+		Vertex_t backTopLeft,
+		Vertex_t backTopRight,
+		Vertex_t backBottomRight,
+		Vertex_t backBottomLeft
+	) 
+	{
+		vertices.resize(8); // cube has 8 vertices
+		vertices[_A] = frontTopLeft;
+		vertices[_B] = frontTopRight;
+		vertices[_C] = frontBottomRight;
+		vertices[_D] = frontBottomLeft;
+		vertices[_E] = backTopLeft;
+		vertices[_F] = backTopRight;
+		vertices[_G] = backBottomRight;
+		vertices[_H] = backBottomLeft;
+
+		triangles.resize(12); // cube has 12 triangles (2 triangles per face)
+		triangles[0]  = {_A, _B, _C, RED};
+		triangles[1]  = {_A, _C, _D, RED};
+		triangles[2]  = {_E, _A, _D, GREEN};
+		triangles[3]  = {_E, _D, _H, GREEN};
+		triangles[4]  = {_F, _E, _H, BLUE};
+		triangles[5]  = {_F, _H, _G, BLUE};
+		triangles[6]  = {_B, _F, _G, YELLOW};
+		triangles[7]  = {_B, _G, _C, YELLOW};
+		triangles[8]  = {_E, _F, _B, PURPLE};
+		triangles[9]  = {_E, _B, _A, PURPLE};
+		triangles[10] = {_C, _G, _H, MAGENTA};
+		triangles[11] = {_C, _H, _D, MAGENTA};
+	}
+};
+
+struct Entity_t {
+	Shape3D_t *shape;
+	Point_t position;
+};
+
+void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected) {
+		DrawWireFrameTriangle(
+			projected[triangle.V0].location,
+			projected[triangle.V1].location,
+			projected[triangle.V2].location,
+			triangle.color
+		);
+	}
+
+void renderEntity(Entity_t *entity) {
+		std::vector<Vertex_t> projected; projected.resize(entity->shape->vertices.size());
+		Vector_t translationVec = entity->position;
+		for (size_t i=0; i<entity->shape->vertices.size(); ++i) {
+			projected[i].location = projectVertex(entity->shape->vertices[i] + translationVec);
+			projected[i].hue = entity->shape->vertices[i].hue;
+		}
+		for (size_t i=0; i<entity->shape->triangles.size(); ++i) {
+			renderTriangle(entity->shape->triangles[i], projected);
+		}
+}
+
+void renderScene(Entity_t *entities, size_t nEntities) {
+		for (size_t i=0; i<nEntities; ++i) {
+			renderEntity(&entities[i]);
+		}
+}
+
 int main(void) {
 	// init app
 	InitWindow(CANVAS_WIDTH, CANVAS_HEIGHT, "Rasterizer");
 	// run app
 
 	// 3 vertices of a triangle
-	// Note: this triangle uses screen coordinates; D is meaningless
+	// Note: this triangle uses canvas coordinates; D is meaningless
 	// Vertex_t V0 = {{-200, 250, D}, 0.8f};
 	// Vertex_t V1 = {{200, 50, D}, 0.4f};
 	// Vertex_t V2 = {{20, 250, D}, 0.2f};
@@ -247,25 +358,39 @@ int main(void) {
 	Vertex_t vC_back = {{1, -1, 3}, 1.f};
 	Vertex_t vD_back = {{-1, -1, 3}, 1.f};
 
+	// declare single cube instance (assumed to be located at origin)
+	Cube_t cube(vA_front, vB_front, vC_front, vD_front,
+							vA_back, vB_back, vC_back, vD_back);
+	
+	// use cube instance to draw 4 concrete cubes at 4 different locations
+	Entity_t entities[] = {
+			{&cube, {-1.5, 1, 3}},
+			{&cube, {-1.5, -1, 3}},
+			{&cube, {1.5, 1, 3}},
+			{&cube, {1.5, -1, 3}}
+	};
+
 	while (!WindowShouldClose()) {
 		BeginDrawing();
 		ClearBackground(BACKGROUND_COLOR);
-		// edges connecting front vertices
-		DrawLine(projectVertex(vA_front), projectVertex(vB_front), BLUE);
-		DrawLine(projectVertex(vB_front), projectVertex(vC_front), BLUE);
-		DrawLine(projectVertex(vC_front), projectVertex(vD_front), BLUE);
-		DrawLine(projectVertex(vD_front), projectVertex(vA_front), BLUE);
-		// edges connecting back vertices
-		DrawLine(projectVertex(vA_back), projectVertex(vB_back), RED);
-		DrawLine(projectVertex(vB_back), projectVertex(vC_back), RED);
-		DrawLine(projectVertex(vC_back), projectVertex(vD_back), RED);
-		DrawLine(projectVertex(vD_back), projectVertex(vA_back), RED);
-		// front to back edges
-		DrawLine(projectVertex(vA_front), projectVertex(vA_back), GREEN);
-		DrawLine(projectVertex(vB_front), projectVertex(vB_back), GREEN);
-		DrawLine(projectVertex(vC_front), projectVertex(vC_back), GREEN);
-		DrawLine(projectVertex(vD_front), projectVertex(vD_back), GREEN);
+		// // edges connecting front vertices
+		// DrawLine(projectVertex(vA_front), projectVertex(vB_front), BLUE);
+		// DrawLine(projectVertex(vB_front), projectVertex(vC_front), BLUE);
+		// DrawLine(projectVertex(vC_front), projectVertex(vD_front), BLUE);
+		// DrawLine(projectVertex(vD_front), projectVertex(vA_front), BLUE);
+		// // edges connecting back vertices
+		// DrawLine(projectVertex(vA_back), projectVertex(vB_back), RED);
+		// DrawLine(projectVertex(vB_back), projectVertex(vC_back), RED);
+		// DrawLine(projectVertex(vC_back), projectVertex(vD_back), RED);
+		// DrawLine(projectVertex(vD_back), projectVertex(vA_back), RED);
+		// // front to back edges
+		// DrawLine(projectVertex(vA_front), projectVertex(vA_back), GREEN);
+		// DrawLine(projectVertex(vB_front), projectVertex(vB_back), GREEN);
+		// DrawLine(projectVertex(vC_front), projectVertex(vC_back), GREEN);
+		// DrawLine(projectVertex(vD_front), projectVertex(vD_back), GREEN);
+
 		// DrawFilledTriangle(V0, V1, V2, RED);
+
 		// DrawWireFrameTriangle(
 		// 	reinterpret_cast<const Point_t&>(V0), 
 		// 	reinterpret_cast<const Point_t&>(V1), 
@@ -273,9 +398,12 @@ int main(void) {
 		// 	BLACK
 		// );
 
+		renderScene(entities, sizeof(entities) / sizeof(entities[0]));
+
 		EndDrawing();
 	}
 	// close app
 	CloseWindow();
 	return 0;
 }
+
