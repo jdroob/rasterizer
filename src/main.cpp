@@ -73,13 +73,13 @@
 		float hue;
 		Vertex_t operator+(const Vector_t& rhs) {
 			return {
-							{
-								location.x + rhs.x, 
-								location.y + rhs.y, 
-								location.z + rhs.z
-							}, 
-							hue
-						};
+					{
+						location.x + rhs.x, 
+						location.y + rhs.y, 
+						location.z + rhs.z
+					}, 
+					hue
+				};
 		}
  };
 
@@ -249,8 +249,6 @@ struct Triangle_t {
 };
 
 struct Shape3D_t {
-	// virtual void translate(const Vector_t& translationVec) = 0;
-	// virtual void draw() = 0;
 	std::vector<Vertex_t> vertices;
 	std::vector<Triangle_t> triangles;
 };
@@ -279,29 +277,29 @@ public:
 		Vertex_t backBottomLeft
 	) 
 	{
-		vertices.resize(8); // cube has 8 vertices
-		vertices[_A] = frontTopLeft;
-		vertices[_B] = frontTopRight;
-		vertices[_C] = frontBottomRight;
-		vertices[_D] = frontBottomLeft;
-		vertices[_E] = backTopLeft;
-		vertices[_F] = backTopRight;
-		vertices[_G] = backBottomRight;
-		vertices[_H] = backBottomLeft;
+		vertices.reserve(8);  // cube has 8 vertices
+		vertices.push_back(frontTopLeft);
+		vertices.push_back(frontTopRight);
+		vertices.push_back(frontBottomRight);
+		vertices.push_back(frontBottomLeft);
+		vertices.push_back(backTopLeft);
+		vertices.push_back(backTopRight);
+		vertices.push_back(backBottomRight);
+		vertices.push_back(backBottomLeft);
 
-		triangles.resize(12); // cube has 12 triangles (2 triangles per face)
-		triangles[0]  = {_A, _B, _C, RED};
-		triangles[1]  = {_A, _C, _D, RED};
-		triangles[2]  = {_E, _A, _D, GREEN};
-		triangles[3]  = {_E, _D, _H, GREEN};
-		triangles[4]  = {_F, _E, _H, BLUE};
-		triangles[5]  = {_F, _H, _G, BLUE};
-		triangles[6]  = {_B, _F, _G, YELLOW};
-		triangles[7]  = {_B, _G, _C, YELLOW};
-		triangles[8]  = {_E, _F, _B, PURPLE};
-		triangles[9]  = {_E, _B, _A, PURPLE};
-		triangles[10] = {_C, _G, _H, MAGENTA};
-		triangles[11] = {_C, _H, _D, MAGENTA};
+		triangles.reserve(12);  // cube has 12 triangles (2 triangles per face)
+		triangles.push_back({_A, _B, _C, RED});
+		triangles.push_back({_A, _C, _D, RED});
+		triangles.push_back({_E, _A, _D, GREEN});
+		triangles.push_back({_E, _D, _H, GREEN});
+		triangles.push_back({_F, _E, _H, BLUE});
+		triangles.push_back({_F, _H, _G, BLUE});
+		triangles.push_back({_B, _F, _G, YELLOW});
+		triangles.push_back({_B, _G, _C, YELLOW});
+		triangles.push_back({_E, _F, _B, PURPLE});
+		triangles.push_back({_E, _B, _A, PURPLE});
+		triangles.push_back({_C, _G, _H, MAGENTA});
+		triangles.push_back({_C, _H, _D, MAGENTA});
 	}
 };
 
@@ -320,7 +318,7 @@ void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected)
 	}
 
 void renderEntity(Entity_t *entity) {
-		std::vector<Vertex_t> projected; projected.resize(entity->shape->vertices.size());
+		std::vector<Vertex_t> projected(entity->shape->vertices.size());
 		Vector_t translationVec = entity->position;
 		for (size_t i=0; i<entity->shape->vertices.size(); ++i) {
 			projected[i].location = projectVertex(entity->shape->vertices[i] + translationVec);
@@ -358,11 +356,11 @@ int main(void) {
 	Vertex_t vC_back = {{1, -1, 3}, 1.f};
 	Vertex_t vD_back = {{-1, -1, 3}, 1.f};
 
-	// declare single cube instance (assumed to be located at origin)
+	// declare single cube model (assumed to be located at origin)
 	Cube_t cube(vA_front, vB_front, vC_front, vD_front,
 							vA_back, vB_back, vC_back, vD_back);
 	
-	// use cube instance to draw 4 concrete cubes at 4 different locations
+	// use cube model to draw 4 concrete cubes at 4 different locations
 	Entity_t entities[] = {
 			{&cube, {-1.5, 1, 3}},
 			{&cube, {-1.5, -1, 3}},
