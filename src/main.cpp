@@ -65,7 +65,6 @@
  struct Point_t {
 		float x, y, z;
  };
-
  typedef Point_t Vector_t;
 
  struct Vertex_t {
@@ -85,26 +84,29 @@
 
  Point_t viewportToCanvas(const float& x, const float& y) {
 	/**
-	 * Scale viewport coordinates to canvas (screen) coordinates.
+	 * Scale viewport coordinates to canvas coordinates.
 	 */
 	return {
 		VIEWPORT2CANVAS_X(x),
 		VIEWPORT2CANVAS_Y(y),
-		D  // dummy
+		D  // viewport is assumed to sit parallel to xy plane at z=1
 	};
  }
 
  Point_t projectVertex(const Vertex_t& V) {
 	/**
-	 * Project vertex from scene (3D world)
+	 * Project vertex from scene
 	 * onto 2D viewport.
 	 * 
 	 * P`.x = P.x * (D / P.z)
 	 * P`.y = P.y * (D / P.z)
+	 * P`.z = D
 	 * 
-	 * Then, scale 2D coordinates from 
+	 * Then, scale 2D (technically 3D but projected onto viewport) coordinates from 
 	 * viewport to canvas by calling
 	 * viewportToCanvas().
+	 * 
+	 * Returns canvas coordinates of vertex.
 	 */
 	const Point_t& P = V.location;
 	return viewportToCanvas(
@@ -357,8 +359,10 @@ int main(void) {
 	Vertex_t vD_back = {{-1, -1, 3}, 1.f};
 
 	// declare single cube model (assumed to be located at origin)
-	Cube_t cube(vA_front, vB_front, vC_front, vD_front,
-							vA_back, vB_back, vC_back, vD_back);
+	Cube_t cube(
+		vA_front, vB_front, vC_front, vD_front,
+		vA_back, vB_back, vC_back, vD_back
+	);
 	
 	// use cube model to draw 4 concrete cubes at 4 different locations
 	Entity_t entities[] = {
