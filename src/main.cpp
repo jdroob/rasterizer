@@ -19,6 +19,9 @@
 #define CANVAS2SCREEN_X(x) ((x) + CANVAS_WIDTH / 2)
 #define CANVAS2SCREEN_Y(y) (-(y) + CANVAS_HEIGHT / 2)
 
+// Translate trig inputs to radians
+#define DEG2RADS(x) (x * (PI / 180.f))
+
 /**
  * Rasterization Notes:
  *  Let's get the line math out of the way:
@@ -308,7 +311,21 @@ public:
 struct Entity_t {
 	Shape3D_t *shape;
 	Point_t position;
+	float angleY;
 };
+
+void rotateY(Vertex_t& vertex, float angle) {
+		/**
+		 * Rotate x, z coordinates about the y-axis.
+		 * 
+		 * x` = x*cos(theta) + z*sin(theta);
+		 * z` = -x*sin(theta) + z*cos(theta);
+		 */
+		float x = vertex.location.x;
+		float z = vertex.location.z;
+		vertex.location.x = x * cos(angle) + z * sin(angle);
+		vertex.location.z = -x * sin(angle) + z * cos(angle);
+}
 
 void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected) {
 		DrawWireFrameTriangle(
@@ -321,9 +338,16 @@ void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected)
 
 void renderEntity(Entity_t *entity) {
 		std::vector<Vertex_t> projected(entity->shape->vertices.size());
-		Vector_t translationVec = entity->position;
+		Vertex_t vertex;
 		for (size_t i=0; i<entity->shape->vertices.size(); ++i) {
-			projected[i].location = projectVertex(entity->shape->vertices[i] + translationVec);
+			vertex = entity->shape->vertices[i];
+
+			// rotate about y-axis
+			rotateY(vertex, entity->angleY);
+			// translation
+			vertex = vertex + entity->position;
+
+			projected[i].location = projectVertex(vertex);
 			projected[i].hue = entity->shape->vertices[i].hue;
 		}
 		for (size_t i=0; i<entity->shape->triangles.size(); ++i) {
@@ -348,15 +372,15 @@ int main(void) {
 	// Vertex_t V1 = {{200, 50, D}, 0.4f};
 	// Vertex_t V2 = {{20, 250, D}, 0.2f};
 
-	// 8 vertices of a cube
-	Vertex_t vA_front = {{-1, 1, 2}, 1.f};
-	Vertex_t vB_front = {{1, 1, 2}, 1.f};
-	Vertex_t vC_front = {{1, -1, 2}, 1.f};
-	Vertex_t vD_front = {{-1, -1, 2}, 1.f};
-	Vertex_t vA_back = {{-1, 1, 3}, 1.f};
-	Vertex_t vB_back = {{1, 1, 3}, 1.f};
-	Vertex_t vC_back = {{1, -1, 3}, 1.f};
-	Vertex_t vD_back = {{-1, -1, 3}, 1.f};
+	// 8 vertices of model cube
+	Vertex_t vA_front = {{-1, 1, -1}, 1.f};
+	Vertex_t vB_front = {{1, 1, -1}, 1.f};
+	Vertex_t vC_front = {{1, -1, -1}, 1.f};
+	Vertex_t vD_front = {{-1, -1, -1}, 1.f};
+	Vertex_t vA_back = {{-1, 1, 1}, 1.f};
+	Vertex_t vB_back = {{1, 1, 1}, 1.f};
+	Vertex_t vC_back = {{1, -1, 1}, 1.f};
+	Vertex_t vD_back = {{-1, -1, 1}, 1.f};
 
 	// declare single cube model (assumed to be located at origin)
 	Cube_t cube(
@@ -366,10 +390,10 @@ int main(void) {
 	
 	// use cube model to draw 4 concrete cubes at 4 different locations
 	Entity_t entities[] = {
-			{&cube, {-1.5, 1, 3}},
-			{&cube, {-1.5, -1, 3}},
-			{&cube, {1.5, 1, 3}},
-			{&cube, {1.5, -1, 3}}
+			{&cube, {-1.5, 1, 7}, DEG2RADS(15.f) },
+			// {&cube, {-1.5, -1, 7}, DEG2RADS(-15.f)},
+			// {&cube, {1.5, 1, 7}, DEG2RADS(30.f)},
+			{&cube, {1.5, -1, 7}, DEG2RADS(-30.f)}
 	};
 
 	while (!WindowShouldClose()) {
