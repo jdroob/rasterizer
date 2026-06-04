@@ -7,8 +7,11 @@
 #define BACKGROUND_COLOR SKYBLUE
 #define CANVAS_WIDTH 1600
 #define CANVAS_HEIGHT 900
+
+// SUBTLE BUT IMPORTANT:
+// CANVAS_WIDTH / CANVAS_HEIGHT should equal VIEWPORT_WIDTH / VIEWPORT_HEIGH
 #define VIEWPORT_WIDTH 2.f
-#define VIEWPORT_HEIGHT 2.f
+#define VIEWPORT_HEIGHT (2.f * CANVAS_HEIGHT / CANVAS_WIDTH)
 #define D 1
 
 #define BOUND_COLOR(colorChannel) (unsigned char)((colorChannel) > 255 ? 255 : colorChannel)
@@ -79,6 +82,16 @@
 						location.x + rhs.x, 
 						location.y + rhs.y, 
 						location.z + rhs.z
+					}, 
+					hue
+				};
+		}
+		Vertex_t operator*(const float rhs) {
+			return {
+					{
+						location.x * rhs, 
+						location.y * rhs, 
+						location.z * rhs
 					}, 
 					hue
 				};
@@ -312,7 +325,12 @@ struct Entity_t {
 	Shape3D_t *shape;
 	Point_t position;
 	float angleY;
+	float scale;
 };
+
+void scale(Vertex_t& vertex, float scalar) {
+	vertex = vertex * scalar;
+}
 
 void rotateY(Vertex_t& vertex, float angle) {
 		/**
@@ -327,6 +345,16 @@ void rotateY(Vertex_t& vertex, float angle) {
 		vertex.location.z = -x * sin(angle) + z * cos(angle);
 }
 
+void translate(Vertex_t& vertex, Vector_t translation) {
+	vertex = vertex + translation;
+}
+
+void applyTransformations(Vertex_t& vertex, Entity_t *entity) {
+	scale(vertex, entity->scale);
+	rotateY(vertex, entity->angleY);
+	translate(vertex, entity->position);
+}
+
 void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected) {
 		DrawWireFrameTriangle(
 			projected[triangle.V0].location,
@@ -334,7 +362,7 @@ void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected)
 			projected[triangle.V2].location,
 			triangle.color
 		);
-	}
+}
 
 void renderEntity(Entity_t *entity) {
 		std::vector<Vertex_t> projected(entity->shape->vertices.size());
@@ -342,10 +370,13 @@ void renderEntity(Entity_t *entity) {
 		for (size_t i=0; i<entity->shape->vertices.size(); ++i) {
 			vertex = entity->shape->vertices[i];
 
-			// rotate about y-axis
-			rotateY(vertex, entity->angleY);
-			// translation
-			vertex = vertex + entity->position;
+			// // scale
+			// vertex = vertex * entity->scale;
+			// // rotate about y-axis
+			// rotateY(vertex, entity->angleY);
+			// // translation
+			// vertex = vertex + entity->position;
+			applyTransformations(vertex, entity);
 
 			projected[i].location = projectVertex(vertex);
 			projected[i].hue = entity->shape->vertices[i].hue;
@@ -390,10 +421,10 @@ int main(void) {
 	
 	// use cube model to draw 4 concrete cubes at 4 different locations
 	Entity_t entities[] = {
-			{&cube, {-1.5, 1, 7}, DEG2RADS(15.f) },
+			{&cube, {-1.5, 1, 7}, DEG2RADS(15.f), 1.5f},
 			// {&cube, {-1.5, -1, 7}, DEG2RADS(-15.f)},
 			// {&cube, {1.5, 1, 7}, DEG2RADS(30.f)},
-			{&cube, {1.5, -1, 7}, DEG2RADS(-30.f)}
+			{&cube, {1.5, -1, 7}, DEG2RADS(-30.f), 0.5f}
 	};
 
 	while (!WindowShouldClose()) {
