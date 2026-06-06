@@ -5,13 +5,15 @@
 #include "raylib.h"
 
 #define BACKGROUND_COLOR SKYBLUE
-#define CANVAS_WIDTH 1600
-#define CANVAS_HEIGHT 900
+#define CANVAS_WIDTH 1600.f
+#define CANVAS_HEIGHT 900.f
+#define ASPECT_RATIO (CANVAS_WIDTH / CANVAS_HEIGHT)
 
 // SUBTLE BUT IMPORTANT:
-// CANVAS_WIDTH / CANVAS_HEIGHT should equal VIEWPORT_WIDTH / VIEWPORT_HEIGH
+// CANVAS_WIDTH / CANVAS_HEIGHT should equal VIEWPORT_WIDTH / VIEWPORT_HEIGHT
 #define VIEWPORT_WIDTH 2.f
-#define VIEWPORT_HEIGHT (2.f * CANVAS_HEIGHT / CANVAS_WIDTH)
+#define VIEWPORT_HEIGHT 2.f
+// #define VIEWPORT_HEIGHT (2.f * 1 / ASPECT_RATIO)
 #define D 1
 
 #define BOUND_COLOR(colorChannel) (unsigned char)((colorChannel) > 255 ? 255 : colorChannel)
@@ -114,7 +116,7 @@
 	 * Project vertex from scene
 	 * onto 2D viewport.
 	 * 
-	 * P`.x = P.x * (D / P.z)
+	 * P`.x = P.x * (1 / ASPECT_RATIO) * (D / P.z)
 	 * P`.y = P.y * (D / P.z)
 	 * P`.z = D
 	 * 
@@ -126,7 +128,7 @@
 	 */
 	const Point_t& P = V.location;
 	return viewportToCanvas(
-		(P.x * (D / P.z)), 
+		(P.x * (1 / ASPECT_RATIO) * (D / P.z)), 
 		(P.y * (D / P.z))
 	);
  }
