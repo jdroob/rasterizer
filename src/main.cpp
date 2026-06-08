@@ -10,10 +10,10 @@
 #define ASPECT_RATIO (CANVAS_WIDTH / CANVAS_HEIGHT)
 
 // SUBTLE BUT IMPORTANT:
-// CANVAS_WIDTH / CANVAS_HEIGHT should equal VIEWPORT_WIDTH / VIEWPORT_HEIGHT
+// (CANVAS_WIDTH / CANVAS_HEIGHT) != (VIEWPORT_WIDTH / VIEWPORT_HEIGHT)
+// This is why in perspective projection, x` = x * (1 / ASPECT_RATIO) * (d / z)
 #define VIEWPORT_WIDTH 2.f
 #define VIEWPORT_HEIGHT 2.f
-// #define VIEWPORT_HEIGHT (2.f * 1 / ASPECT_RATIO)
 #define D 1
 
 #define BOUND_COLOR(colorChannel) (unsigned char)((colorChannel) > 255 ? 255 : colorChannel)
