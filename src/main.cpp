@@ -13,8 +13,11 @@
 // (CANVAS_WIDTH / CANVAS_HEIGHT) != (VIEWPORT_WIDTH / VIEWPORT_HEIGHT)
 // This is why in perspective projection, x` = x * (1 / ASPECT_RATIO) * (d / z)
 #define VIEWPORT_WIDTH 2.f
-#define VIEWPORT_HEIGHT 2.f
+#define VIEWPORT_HEIGHT (2.f * (1 / ASPECT_RATIO))
 #define D 1
+
+// inputs
+#define STEP 0.05
 
 #define BOUND_COLOR(colorChannel) (unsigned char)((colorChannel) > 255 ? 255 : colorChannel)
 #define VIEWPORT2CANVAS_X(x) ((x) * (CANVAS_WIDTH / VIEWPORT_WIDTH))
@@ -72,13 +75,26 @@
 
  struct Point_t {
 		float x, y, z;
+		Point_t operator-() {
+			return {-x, -y, -z};	
+		}
  };
- typedef Point_t Vector_t;
+ typedef Point_t Vec3_t;
+
+ struct Vec4_t { 
+	float x, y, z, w;
+	float& operator[](size_t idx) {
+    if (idx == 0) return x;
+    if (idx == 1) return y;
+    if (idx == 2) return z;
+    return w;
+	}
+};
 
  struct Vertex_t {
 		Point_t location;
 		float hue;
-		Vertex_t operator+(const Vector_t& rhs) {
+		Vertex_t operator+(const Vec3_t& rhs) {
 			return {
 					{
 						location.x + rhs.x, 
@@ -97,6 +113,11 @@
 					}, 
 					hue
 				};
+		}
+		void operator=(const Vec4_t& rhs) {
+			location.x = rhs.x;
+			location.y = rhs.y;
+			location.z = rhs.z;
 		}
  };
 
@@ -128,7 +149,8 @@
 	 */
 	const Point_t& P = V.location;
 	return viewportToCanvas(
-		(P.x * (1 / ASPECT_RATIO) * (D / P.z)), 
+		// (P.x * (1 / ASPECT_RATIO) * (D / P.z)), 
+		(P.x * (D / P.z)), 
 		(P.y * (D / P.z))
 	);
  }
@@ -158,14 +180,14 @@ void PutPixel(int Cx, int Cy, const Color color) {
 	DrawPixel(Sx, Sy, color);
 }
 
-void Interpolate(int i0, int i1, float d0, float d1, std::vector<float>& values) {
+void Interpolate(float i0, float i1, float d0, float d1, std::vector<float>& values) {
   if (i0 == i1) {
 		values.push_back(d0);
 		return;
 	}	
 	float a = (d1 - d0) / (i1 - i0);
 	float d = d0;
-	for (int i=i0; i<=i1; ++i) {
+	for (int i=i0; i<=i1; i+=1.f) {
 		values.push_back(d);
 		d += a;
 	}	
@@ -237,13 +259,13 @@ void FillTriangle(Vertex_t V0, Vertex_t V1, Vertex_t V2, const Color& color) {
 		xRight = &x02;
 		hRight = &h02;
 	}
-	for (int y=P0.y; y<= P2.y; ++y) {
-		int xL = (*xLeft)[y-P0.y];
+	for (float y=P0.y; y<= P2.y; y+=1.f) {
+		float xL = (*xLeft)[y-P0.y];
 		float hL = (*hLeft)[y-P0.y];
-		int xR = (*xRight)[y-P0.y];
+		float xR = (*xRight)[y-P0.y];
 		float hR = (*hRight)[y-P0.y];
 		std::vector<float> hSegment; Interpolate(xL, xR, hL, hR, hSegment);
-		for (int x=xL; x<=xR; ++x) {
+		for (float x=xL; x<=xR; x+=1.f) {
 			float h = hSegment[x-xL];
 			Color shadedColor = h * color;
 			PutPixel(x, y, shadedColor);
@@ -330,6 +352,67 @@ struct Entity_t {
 	float scale;
 };
 
+struct Scene_t {
+	size_t nEntities;
+	float sceneRotationAngle;
+	Vec3_t sceneTranslation;
+	Entity_t *entities;
+};
+
+//========================
+// 8 vertices of model cube
+Vertex_t vA_front = {{-1, 1, -1}, 1.f};
+Vertex_t vB_front = {{1, 1, -1}, 1.f};
+Vertex_t vC_front = {{1, -1, -1}, 1.f};
+Vertex_t vD_front = {{-1, -1, -1}, 1.f};
+Vertex_t vA_back = {{-1, 1, 1}, 1.f};
+Vertex_t vB_back = {{1, 1, 1}, 1.f};
+Vertex_t vC_back = {{1, -1, 1}, 1.f};
+Vertex_t vD_back = {{-1, -1, 1}, 1.f};
+
+// declare single cube model (assumed to be located at origin)
+Cube_t cube(
+	vA_front, vB_front, vC_front, vD_front,
+	vA_back, vB_back, vC_back, vD_back
+);
+
+// use cube model to draw 4 concrete cubes at 4 different locations
+Entity_t entities[] = {
+		{&cube, {-1.5, 1, 7}, DEG2RADS(15.f), 1.5f},
+		// {&cube, {-1.5, -1, 7}, DEG2RADS(-15.f)},
+		// {&cube, {1.5, 1, 7}, DEG2RADS(30.f)},
+		{&cube, {1.5, -1, 7}, DEG2RADS(-30.f), 0.5f}
+};
+
+Scene_t scene = 
+{
+	.nEntities = sizeof(entities) / sizeof(entities[0]),
+	.sceneRotationAngle = DEG2RADS(-10),
+	.sceneTranslation = { -1.f , -1.f, -1.f },
+	.entities = entities
+};
+
+struct mat4x4 {
+	float matrix[4][4];
+};
+
+//========================
+
+static void mv_mul(const float M[4][4], Vertex_t V, Vec4_t *V_prime) {
+	Vec4_t I = { V.location.x, V.location.y, V.location.z, 1 };
+	// initialize output to zero
+	for (int i = 0; i < 4; ++i) {
+		(*V_prime)[i] = 0.0f;
+	}
+
+	// perform matrix-vector multiplication: V_prime = M * I
+	for (int i = 0; i < 4; ++i) {
+		for (int j = 0; j < 4; ++j) {
+			(*V_prime)[i] += M[i][j] * I[j];
+		}
+	}
+}
+
 void scale(Vertex_t& vertex, float scalar) {
 	vertex = vertex * scalar;
 }
@@ -340,21 +423,71 @@ void rotateY(Vertex_t& vertex, float angle) {
 		 * 
 		 * x` = x*cos(theta) + z*sin(theta);
 		 * z` = -x*sin(theta) + z*cos(theta);
+		 * 
+		 * NOTE: this is equivalent to (and should be thought of as)
+		 * multiplication of a 3d vector by a 3x3 rotation matrix
+		 * 
+		 * Ry = {
+		 * 				{ cosTheta, 0,  sinTheta },
+		 * 				{        0, 1,         0 },
+		 * 				{ -sinTheta, 0, cosTheta },
+		 * 			}
 		 */
-		float x = vertex.location.x;
-		float z = vertex.location.z;
-		vertex.location.x = x * cos(angle) + z * sin(angle);
-		vertex.location.z = -x * sin(angle) + z * cos(angle);
+		float mat4x4[][4] = 
+		{
+			{  (float)cos(angle), 0, (float)sin(angle), 0 },
+			{           0, 1,  				  0, 0 },
+			{ -(float)sin(angle), 0,  (float)cos(angle), 0 },
+			{           0, 0,           0, 1 }
+		};
+		Vec4_t V_prime;
+		mv_mul(mat4x4, { vertex.location, 1}, &V_prime);
+		// float x = vertex.location.x;
+		// float z = vertex.location.z;
+		// vertex.location.x = x * cos(angle) + z * sin(angle);
+		// vertex.location.z = -x * sin(angle) + z * cos(angle);
+		vertex = V_prime;
 }
 
-void translate(Vertex_t& vertex, Vector_t translation) {
+void translate(Vertex_t& vertex, Vec3_t translation) {
 	vertex = vertex + translation;
 }
 
-void applyTransformations(Vertex_t& vertex, Entity_t *entity) {
+void handleInput(Scene_t& scene) {
+	if (IsKeyDown(KEY_W)) {
+		scene.sceneTranslation.z += STEP;
+	}
+	if (IsKeyDown(KEY_S)) {
+		scene.sceneTranslation.z -= STEP;
+	}
+	if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+		scene.sceneTranslation.x += STEP;
+	}
+	if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+		scene.sceneTranslation.x -= STEP;
+	}
+	if (IsKeyDown(KEY_UP)) {
+		scene.sceneTranslation.y += STEP;
+	}
+	if (IsKeyDown(KEY_DOWN)) {
+		scene.sceneTranslation.y -= STEP;
+	}
+	// if (IsKeyDown(KEY_SPACE)) {
+	// 	scene = scene;
+	// }
+}
+
+void applyInstanceTransformations(Vertex_t& vertex, Entity_t *entity) {
+	// instance transforms
 	scale(vertex, entity->scale);
 	rotateY(vertex, entity->angleY);
 	translate(vertex, entity->position);
+}
+
+void applyCameraTransformations(Vertex_t& vertex, Scene_t& scene) {
+	// camera transforms = opposite(instance transforms)
+	translate(vertex, -scene.sceneTranslation);
+	rotateY(vertex, -scene.sceneRotationAngle);
 }
 
 void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected) {
@@ -366,11 +499,12 @@ void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected)
 		);
 }
 
-void renderEntity(Entity_t *entity) {
-		std::vector<Vertex_t> projected(entity->shape->vertices.size());
+void renderEntity(unsigned entityIdx, Scene_t& scene) {
+		Entity_t entity = scene.entities[entityIdx];
+		std::vector<Vertex_t> projected(entity.shape->vertices.size());
 		Vertex_t vertex;
-		for (size_t i=0; i<entity->shape->vertices.size(); ++i) {
-			vertex = entity->shape->vertices[i];
+		for (size_t i=0; i<entity.shape->vertices.size(); ++i) {
+			vertex = entity.shape->vertices[i];
 
 			// // scale
 			// vertex = vertex * entity->scale;
@@ -378,19 +512,20 @@ void renderEntity(Entity_t *entity) {
 			// rotateY(vertex, entity->angleY);
 			// // translation
 			// vertex = vertex + entity->position;
-			applyTransformations(vertex, entity);
+			applyInstanceTransformations(vertex, &entity);
+			applyCameraTransformations(vertex, scene);
 
 			projected[i].location = projectVertex(vertex);
-			projected[i].hue = entity->shape->vertices[i].hue;
+			projected[i].hue = entity.shape->vertices[i].hue;
 		}
-		for (size_t i=0; i<entity->shape->triangles.size(); ++i) {
-			renderTriangle(entity->shape->triangles[i], projected);
+		for (size_t i=0; i<entity.shape->triangles.size(); ++i) {
+			renderTriangle(entity.shape->triangles[i], projected);
 		}
 }
 
-void renderScene(Entity_t *entities, size_t nEntities) {
-		for (size_t i=0; i<nEntities; ++i) {
-			renderEntity(&entities[i]);
+void renderScene(Scene_t& scene) {
+		for (size_t i=0; i<scene.nEntities; ++i) {
+			renderEntity(i, scene);
 		}
 }
 
@@ -405,29 +540,8 @@ int main(void) {
 	// Vertex_t V1 = {{200, 50, D}, 0.4f};
 	// Vertex_t V2 = {{20, 250, D}, 0.2f};
 
-	// 8 vertices of model cube
-	Vertex_t vA_front = {{-1, 1, -1}, 1.f};
-	Vertex_t vB_front = {{1, 1, -1}, 1.f};
-	Vertex_t vC_front = {{1, -1, -1}, 1.f};
-	Vertex_t vD_front = {{-1, -1, -1}, 1.f};
-	Vertex_t vA_back = {{-1, 1, 1}, 1.f};
-	Vertex_t vB_back = {{1, 1, 1}, 1.f};
-	Vertex_t vC_back = {{1, -1, 1}, 1.f};
-	Vertex_t vD_back = {{-1, -1, 1}, 1.f};
-
-	// declare single cube model (assumed to be located at origin)
-	Cube_t cube(
-		vA_front, vB_front, vC_front, vD_front,
-		vA_back, vB_back, vC_back, vD_back
-	);
 	
-	// use cube model to draw 4 concrete cubes at 4 different locations
-	Entity_t entities[] = {
-			{&cube, {-1.5, 1, 7}, DEG2RADS(15.f), 1.5f},
-			// {&cube, {-1.5, -1, 7}, DEG2RADS(-15.f)},
-			// {&cube, {1.5, 1, 7}, DEG2RADS(30.f)},
-			{&cube, {1.5, -1, 7}, DEG2RADS(-30.f), 0.5f}
-	};
+
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();
@@ -457,7 +571,8 @@ int main(void) {
 		// 	BLACK
 		// );
 
-		renderScene(entities, sizeof(entities) / sizeof(entities[0]));
+		handleInput(scene);
+		renderScene(scene);
 
 		EndDrawing();
 	}
