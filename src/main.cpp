@@ -4,7 +4,7 @@
 #include <vector>
 #include "raylib.h"
 
-#define BACKGROUND_COLOR SKYBLUE
+#define BACKGROUND_COLOR BLACK
 #define CANVAS_WIDTH 1600.f
 #define CANVAS_HEIGHT 900.f
 #define ASPECT_RATIO (CANVAS_WIDTH / CANVAS_HEIGHT)
@@ -65,7 +65,7 @@
  *  So our pseudo-code for DrawLine is:
  *  
  *  DrawLine(P0, P1, Color) {
- * 	a = (y1-y0) / (x1-x0);
+ * 	  a = (y1-y0) / (x1-x0);
  *    b = (y0 - a * x0);
  *    for x in x0 to x1:
  * 			y = a * x + b;
@@ -104,12 +104,12 @@
 					hue
 				};
 		}
-		Vertex_t operator*(const float rhs) {
+		Vertex_t operator*(const float scalar) {
 			return {
 					{
-						location.x * rhs, 
-						location.y * rhs, 
-						location.z * rhs
+						location.x * scalar, 
+						location.y * scalar, 
+						location.z * scalar
 					}, 
 					hue
 				};
@@ -120,6 +120,24 @@
 			location.z = rhs.z;
 		}
  };
+
+// Forward declaration so `Entity_t` can reference `Shape3D_t` which is
+// defined later in the file.
+struct Shape3D_t;
+
+struct Entity_t {
+    Shape3D_t *shape;
+    Point_t position;
+    float angleY;
+    float scale;
+};
+
+struct Scene_t {
+	size_t nEntities;
+	float sceneRotationAngle;
+	Vec3_t sceneTranslation;
+	Entity_t *entities;
+};
 
  Point_t viewportToCanvas(const float& x, const float& y) {
 	/**
@@ -180,14 +198,14 @@ void PutPixel(int Cx, int Cy, const Color color) {
 	DrawPixel(Sx, Sy, color);
 }
 
-void Interpolate(float i0, float i1, float d0, float d1, std::vector<float>& values) {
+void Interpolate(int i0, int i1, float d0, float d1, std::vector<float>& values) {
   if (i0 == i1) {
 		values.push_back(d0);
 		return;
 	}	
 	float a = (d1 - d0) / (i1 - i0);
 	float d = d0;
-	for (int i=i0; i<=i1; i+=1.f) {
+	for (int i=i0; i<=i1; ++i) {
 		values.push_back(d);
 		d += a;
 	}	
@@ -307,57 +325,45 @@ enum Vertex_e : int {
 };
 
 struct Cube_t : Shape3D_t {
-public:
-	Cube_t(
-		Vertex_t frontTopLeft,
-		Vertex_t frontTopRight,
-		Vertex_t frontBottomRight,
-		Vertex_t frontBottomLeft,
-		Vertex_t backTopLeft,
-		Vertex_t backTopRight,
-		Vertex_t backBottomRight,
-		Vertex_t backBottomLeft
-	) 
-	{
-		vertices.reserve(8);  // cube has 8 vertices
-		vertices.push_back(frontTopLeft);
-		vertices.push_back(frontTopRight);
-		vertices.push_back(frontBottomRight);
-		vertices.push_back(frontBottomLeft);
-		vertices.push_back(backTopLeft);
-		vertices.push_back(backTopRight);
-		vertices.push_back(backBottomRight);
-		vertices.push_back(backBottomLeft);
+	public:
+		Cube_t(
+			Vertex_t frontTopLeft,
+			Vertex_t frontTopRight,
+			Vertex_t frontBottomRight,
+			Vertex_t frontBottomLeft,
+			Vertex_t backTopLeft,
+			Vertex_t backTopRight,
+			Vertex_t backBottomRight,
+			Vertex_t backBottomLeft
+		) 
+		{
+			vertices.reserve(8);  // cube has 8 vertices
+			vertices.push_back(frontTopLeft);
+			vertices.push_back(frontTopRight);
+			vertices.push_back(frontBottomRight);
+			vertices.push_back(frontBottomLeft);
+			vertices.push_back(backTopLeft);
+			vertices.push_back(backTopRight);
+			vertices.push_back(backBottomRight);
+			vertices.push_back(backBottomLeft);
 
-		triangles.reserve(12);  // cube has 12 triangles (2 triangles per face)
-		triangles.push_back({_A, _B, _C, RED});
-		triangles.push_back({_A, _C, _D, RED});
-		triangles.push_back({_E, _A, _D, GREEN});
-		triangles.push_back({_E, _D, _H, GREEN});
-		triangles.push_back({_F, _E, _H, BLUE});
-		triangles.push_back({_F, _H, _G, BLUE});
-		triangles.push_back({_B, _F, _G, YELLOW});
-		triangles.push_back({_B, _G, _C, YELLOW});
-		triangles.push_back({_E, _F, _B, PURPLE});
-		triangles.push_back({_E, _B, _A, PURPLE});
-		triangles.push_back({_C, _G, _H, MAGENTA});
-		triangles.push_back({_C, _H, _D, MAGENTA});
-	}
+			triangles.reserve(12);  // cube has 12 triangles (2 triangles per face)
+			triangles.push_back({_A, _B, _C, RED});
+			triangles.push_back({_A, _C, _D, RED});
+			triangles.push_back({_E, _A, _D, GREEN});
+			triangles.push_back({_E, _D, _H, GREEN});
+			triangles.push_back({_F, _E, _H, BLUE});
+			triangles.push_back({_F, _H, _G, BLUE});
+			triangles.push_back({_B, _F, _G, YELLOW});
+			triangles.push_back({_B, _G, _C, YELLOW});
+			triangles.push_back({_E, _F, _B, PURPLE});
+			triangles.push_back({_E, _B, _A, PURPLE});
+			triangles.push_back({_C, _G, _H, MAGENTA});
+			triangles.push_back({_C, _H, _D, MAGENTA});
+		}
 };
 
-struct Entity_t {
-	Shape3D_t *shape;
-	Point_t position;
-	float angleY;
-	float scale;
-};
 
-struct Scene_t {
-	size_t nEntities;
-	float sceneRotationAngle;
-	Vec3_t sceneTranslation;
-	Entity_t *entities;
-};
 
 //========================
 // 8 vertices of model cube
@@ -393,65 +399,83 @@ Scene_t scene =
 };
 
 struct mat4x4 {
+	mat4x4() : matrix{} {}
 	float matrix[4][4];
 };
 
 //========================
 
-static void mv_mul(const float M[4][4], Vertex_t V, Vec4_t *V_prime) {
+static void mm(mat4x4& A, mat4x4& B, mat4x4& out) {
+	// Ensure output matrix is zeroed before accumulation
+	for (unsigned i = 0; i < 4; ++i) {
+		for (unsigned j = 0; j < 4; ++j) {
+			out.matrix[i][j] = 0.0f;
+		}
+	}
+
+	for (unsigned i = 0; i < 4; ++i) {
+		for (unsigned j = 0; j < 4; ++j) {
+			for (unsigned k = 0; k < 4; ++k) {
+				out.matrix[i][j] += A.matrix[i][k] * B.matrix[k][j];
+			}
+		}
+	}
+}
+
+static void mv_mul(mat4x4& M, Vertex_t V, Vec4_t& V_prime) {
 	Vec4_t I = { V.location.x, V.location.y, V.location.z, 1 };
 	// initialize output to zero
 	for (int i = 0; i < 4; ++i) {
-		(*V_prime)[i] = 0.0f;
+		V_prime[i] = 0.0f;
 	}
 
 	// perform matrix-vector multiplication: V_prime = M * I
 	for (int i = 0; i < 4; ++i) {
 		for (int j = 0; j < 4; ++j) {
-			(*V_prime)[i] += M[i][j] * I[j];
+			V_prime[i] += M.matrix[i][j] * I[j];
 		}
 	}
 }
 
-void scale(Vertex_t& vertex, float scalar) {
-	vertex = vertex * scalar;
-}
+// void scale(Vertex_t& vertex, float scalar) {
+// 	vertex = vertex * scalar;
+// }
 
-void rotateY(Vertex_t& vertex, float angle) {
-		/**
-		 * Rotate x, z coordinates about the y-axis.
-		 * 
-		 * x` = x*cos(theta) + z*sin(theta);
-		 * z` = -x*sin(theta) + z*cos(theta);
-		 * 
-		 * NOTE: this is equivalent to (and should be thought of as)
-		 * multiplication of a 3d vector by a 3x3 rotation matrix
-		 * 
-		 * Ry = {
-		 * 				{ cosTheta, 0,  sinTheta },
-		 * 				{        0, 1,         0 },
-		 * 				{ -sinTheta, 0, cosTheta },
-		 * 			}
-		 */
-		float mat4x4[][4] = 
-		{
-			{  (float)cos(angle), 0, (float)sin(angle), 0 },
-			{           0, 1,  				  0, 0 },
-			{ -(float)sin(angle), 0,  (float)cos(angle), 0 },
-			{           0, 0,           0, 1 }
-		};
-		Vec4_t V_prime;
-		mv_mul(mat4x4, { vertex.location, 1}, &V_prime);
-		// float x = vertex.location.x;
-		// float z = vertex.location.z;
-		// vertex.location.x = x * cos(angle) + z * sin(angle);
-		// vertex.location.z = -x * sin(angle) + z * cos(angle);
-		vertex = V_prime;
-}
+// // void rotateY(Vertex_t& vertex, float angle) {
+// // 		/**
+// // 		 * Rotate x, z coordinates about the y-axis.
+// // 		 * 
+// // 		 * x` = x*cos(theta) + z*sin(theta);
+// // 		 * z` = -x*sin(theta) + z*cos(theta);
+// // 		 * 
+// // 		 * NOTE: this is equivalent to (and should be thought of as)
+// // 		 * multiplication of a 3d vector by a 3x3 rotation matrix
+// // 		 * 
+// // 		 * Ry = {
+// // 		 * 				{ cosTheta, 0,  sinTheta },
+// // 		 * 				{        0, 1,         0 },
+// // 		 * 				{ -sinTheta, 0, cosTheta },
+// // 		 * 			}
+// // 		 */
+// // 		float mat[][4] = 
+// // 		{
+// // 			{  (float)cos(angle), 0, (float)sin(angle), 0 },
+// // 			{           0, 1,  				  0, 0 },
+// // 			{ -(float)sin(angle), 0,  (float)cos(angle), 0 },
+// // 			{           0, 0,           0, 1 }
+// // 		};
+// // 		Vec4_t V_prime;
+// // 		// mv_mul(mat, { vertex.location, 1}, &V_prime);
+// // 		// float x = vertex.location.x;
+// // 		// float z = vertex.location.z;
+// // 		// vertex.location.x = x * cos(angle) + z * sin(angle);
+// // 		// vertex.location.z = -x * sin(angle) + z * cos(angle);
+// // 		vertex = V_prime;
+// // }
 
-void translate(Vertex_t& vertex, Vec3_t translation) {
-	vertex = vertex + translation;
-}
+// void translate(Vertex_t& vertex, Vec3_t translation) {
+// 	vertex = vertex + translation;
+// }
 
 void handleInput(Scene_t& scene) {
 	if (IsKeyDown(KEY_W)) {
@@ -477,17 +501,121 @@ void handleInput(Scene_t& scene) {
 	// }
 }
 
-void applyInstanceTransformations(Vertex_t& vertex, Entity_t *entity) {
-	// instance transforms
-	scale(vertex, entity->scale);
-	rotateY(vertex, entity->angleY);
-	translate(vertex, entity->position);
+void computeTransformMatrix(Entity_t *entity, mat4x4& transformationMatrix) {
+	// declare homogeneous transformation matrices
+	mat4x4 rotationMatrix = mat4x4();
+	mat4x4 scaleMatrix = mat4x4();
+	mat4x4 translationMatrix = mat4x4();
+
+	// define homogeneous rotation matrix
+	// {
+	// 	{ cosTheta,  0, -sinTheta, 0 },
+	// 	{        0,  1,         0, 0 },
+	// 	{ sinTheta,  0,  cosTheta, 0 },
+	// 	{         0, 0,         0, 1 },
+	// }
+	rotationMatrix.matrix[0][0] = cos(entity->angleY);
+	rotationMatrix.matrix[0][2] = -sin(entity->angleY);
+	rotationMatrix.matrix[1][1] = 1.f; // preserve Y component
+	rotationMatrix.matrix[2][0] = sin(entity->angleY);
+	rotationMatrix.matrix[2][2] = cos(entity->angleY);
+	rotationMatrix.matrix[3][3] = 1.f;
+
+	// define homogeneous scale matrix
+	// {
+	// 	{  S,  0, 0, 0 },
+	// 	{  0,  S, 0, 0 },
+	// 	{  0,  0, S, 0 },
+	// 	{  0,  0, 0, 1 },
+	// }
+	for (unsigned char i=0; i<3; ++i) {
+		scaleMatrix.matrix[i][i] = entity->scale;
+	}
+	scaleMatrix.matrix[3][3] = 1.f;
+
+	// define homogeneous translation matrix
+	// {
+	// 	{  1,  0, 0, Tx },
+	// 	{  0,  1, 0, Ty },
+	// 	{  0,  0, 1, Tz },
+	// 	{  0,  0, 0, 1  },
+	// }
+	for (unsigned char i=0; i<3; ++i) {
+		translationMatrix.matrix[i][i] = 1.f;
+	}
+	translationMatrix.matrix[0][3] = entity->position.x;
+	translationMatrix.matrix[1][3] = entity->position.y;
+	translationMatrix.matrix[2][3] = entity->position.z;
+	translationMatrix.matrix[3][3] = 1.f;
+
+	// scale then rotate
+	mat4x4 intermediateTransformationMatrix = mat4x4();
+	mm(rotationMatrix, scaleMatrix, intermediateTransformationMatrix);
+	// ..now translate
+	// Initialize transformationMatrix to zero before using in mm (which uses +=)
+	for (int i = 0; i < 4; ++i) {
+		for (int j = 0; j < 4; ++j) {
+			transformationMatrix.matrix[i][j] = 0.f;
+		}
+	}
+	mm(translationMatrix, intermediateTransformationMatrix, transformationMatrix);
 }
 
-void applyCameraTransformations(Vertex_t& vertex, Scene_t& scene) {
+// void applyInstanceTransformations(Vertex_t& vertex, Entity_t *entity) {
+// 	// instance transforms
+// 	scale(vertex, entity->scale);
+// 	rotateY(vertex, entity->angleY);
+// 	translate(vertex, entity->position);
+// }
+
+void applyCameraTransformations(Vec4_t& V_prime, Scene_t& scene) {
 	// camera transforms = opposite(instance transforms)
-	translate(vertex, -scene.sceneTranslation);
-	rotateY(vertex, -scene.sceneRotationAngle);
+
+	// declare homogeneous transformation matrices
+	mat4x4 rotationMatrix = mat4x4();
+	mat4x4 translationMatrix = mat4x4();
+
+	// define homogeneous rotation matrix
+	// {
+	// 	{ cosTheta,  0, sinTheta, 0},
+	// 	{        0,  1,        0, 0},
+	// 	{ -sinTheta, 0, cosTheta, 0},
+	// 	{         0, 0,        0, 1},
+	// }
+	rotationMatrix.matrix[0][0] = cos(-scene.sceneRotationAngle);
+	rotationMatrix.matrix[0][2] = sin(-scene.sceneRotationAngle);
+	rotationMatrix.matrix[1][1] = 1.f; // preserve Y component
+	rotationMatrix.matrix[2][0] = -sin(-scene.sceneRotationAngle);
+	rotationMatrix.matrix[2][2] = cos(-scene.sceneRotationAngle);
+	rotationMatrix.matrix[3][3] = 1.f;
+
+	// define homogeneous translation matrix
+	// {
+	// 	{  1,  0, 0, Tx },
+	// 	{  0,  1, 0, Ty },
+	// 	{  0,  0, 1, Tz },
+	// 	{  0,  0, 0, 1  },
+	// }
+	for (unsigned char i=0; i<3; ++i) {
+		translationMatrix.matrix[i][i] = 1.f;
+	}
+	translationMatrix.matrix[0][3] = -scene.sceneTranslation.x;
+	translationMatrix.matrix[1][3] = -scene.sceneTranslation.y;
+	translationMatrix.matrix[2][3] = -scene.sceneTranslation.z;
+	translationMatrix.matrix[3][3] = 1.f;
+
+	mat4x4 transformationMatrix = mat4x4();
+	Vertex_t V = {{V_prime.x, V_prime.y, V_prime.z}, 1.f};
+	for (int i = 0; i < 4; ++i) {
+		for (int j = 0; j < 4; ++j) {
+			transformationMatrix.matrix[i][j] = 0.f;
+		}
+	}
+	mm(rotationMatrix, translationMatrix, transformationMatrix);
+	mv_mul(transformationMatrix, V, V_prime);
+
+	// translate(vertex, -scene.sceneTranslation);
+	// rotateY(vertex, -scene.sceneRotationAngle);
 }
 
 void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected) {
@@ -500,33 +628,43 @@ void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected)
 }
 
 void renderEntity(unsigned entityIdx, Scene_t& scene) {
-		Entity_t entity = scene.entities[entityIdx];
-		std::vector<Vertex_t> projected(entity.shape->vertices.size());
-		Vertex_t vertex;
-		for (size_t i=0; i<entity.shape->vertices.size(); ++i) {
-			vertex = entity.shape->vertices[i];
+	Entity_t& entity = scene.entities[entityIdx];
+	std::vector<Vertex_t> projected(entity.shape->vertices.size());
+	Vertex_t vertex;
+	mat4x4 transformationMatrix;
+	if (!IsKeyDown(KEY_SPACE)) {
+		entity.angleY = std::fmod(entity.angleY + .01f, 360.f);	// spin baby spin
+	}
+	computeTransformMatrix(&entity, transformationMatrix);
+	for (size_t i=0; i<entity.shape->vertices.size(); ++i) {
+		vertex = entity.shape->vertices[i];
 
-			// // scale
-			// vertex = vertex * entity->scale;
-			// // rotate about y-axis
-			// rotateY(vertex, entity->angleY);
-			// // translation
-			// vertex = vertex + entity->position;
-			applyInstanceTransformations(vertex, &entity);
-			applyCameraTransformations(vertex, scene);
+		// // scale
+		// vertex = vertex * entity->scale;
+		// // rotate about y-axis
+		// rotateY(vertex, entity->angleY);
+		// // translation
+		// vertex = vertex + entity->position;
+		// applyInstanceTransformations(vertex, &entity);
+		Vec4_t V_prime;
+		mv_mul(transformationMatrix, vertex, V_prime);
+		applyCameraTransformations(V_prime, scene);
+		vertex.location.x = V_prime.x;
+		vertex.location.y = V_prime.y;
+		vertex.location.z = V_prime.z;
 
-			projected[i].location = projectVertex(vertex);
-			projected[i].hue = entity.shape->vertices[i].hue;
-		}
-		for (size_t i=0; i<entity.shape->triangles.size(); ++i) {
-			renderTriangle(entity.shape->triangles[i], projected);
-		}
+		projected[i].location = projectVertex(vertex);
+		projected[i].hue = entity.shape->vertices[i].hue;
+	}
+	for (size_t i=0; i<entity.shape->triangles.size(); ++i) {
+		renderTriangle(entity.shape->triangles[i], projected);
+	}
 }
 
 void renderScene(Scene_t& scene) {
-		for (size_t i=0; i<scene.nEntities; ++i) {
-			renderEntity(i, scene);
-		}
+	for (size_t i=0; i<scene.nEntities; ++i) {
+		renderEntity(i, scene);
+	}
 }
 
 int main(void) {
@@ -539,8 +677,6 @@ int main(void) {
 	// Vertex_t V0 = {{-200, 250, D}, 0.8f};
 	// Vertex_t V1 = {{200, 50, D}, 0.4f};
 	// Vertex_t V2 = {{20, 250, D}, 0.2f};
-
-	
 
 
 	while (!WindowShouldClose()) {
