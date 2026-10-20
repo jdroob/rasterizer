@@ -15,6 +15,7 @@
 #define VIEWPORT_WIDTH 2.f
 #define VIEWPORT_HEIGHT (2.f * (1 / ASPECT_RATIO))
 #define D 1
+#define NEAR_PLANE 0.1f
 
 // inputs
 #define STEP 0.05
@@ -74,7 +75,7 @@
  */
 
  struct Point_t {
-		float x, y, z;
+		float x, y, z, hue = 0.;
 		Point_t operator-() {
 			return {-x, -y, -z};	
 		}
@@ -243,20 +244,20 @@ void FillTriangle(Vertex_t V0, Vertex_t V1, Vertex_t V2, const Color& color) {
 	 * Assumes canvas coordinate inputs.
 	 */
 	// Sort the vertices by y coordinate ascending (P0, P1, P2)
-	Point_t P0 = V0.location; float h0 = V0.hue;
-	Point_t P1 = V1.location; float h1 = V1.hue;
-	Point_t P2 = V2.location; float h2 = V2.hue;
+	Point_t P0 = V0.location; P0.hue = V0.hue;
+	Point_t P1 = V1.location; P1.hue = V1.hue;
+	Point_t P2 = V2.location; P2.hue = V2.hue;
 	if (P0.y > P1.y) std::swap(P0, P1);
 	if (P0.y > P2.y) std::swap(P0, P2);
 	if (P1.y > P2.y) std::swap(P1, P2);
 
 	// Compute the x coordinates of the triangle edges at each y coordinate
 	std::vector<float> x01; Interpolate(P0.y, P1.y, P0.x, P1.x, x01);
-	std::vector<float> h01; Interpolate(P0.y, P1.y, h0, h1, h01);
+	std::vector<float> h01; Interpolate(P0.y, P1.y, P0.hue, P1.hue, h01);
 	std::vector<float> x12; Interpolate(P1.y, P2.y, P1.x, P2.x, x12);
-	std::vector<float> h12; Interpolate(P1.y, P2.y, h1, h2, h12);
+	std::vector<float> h12; Interpolate(P1.y, P2.y, P1.hue, P2.hue, h12);
 	std::vector<float> x02; Interpolate(P0.y, P2.y, P0.x, P2.x, x02); x02.pop_back();
-	std::vector<float> h02; Interpolate(P0.y, P2.y, h0, h2, h02); h02.pop_back();
+	std::vector<float> h02; Interpolate(P0.y, P2.y, P0.hue, P2.hue, h02); h02.pop_back();
 	std::vector<float> x012 = x01;
 	std::vector<float> h012 = h01;
 	x012.insert(x012.end(), x12.begin(), x12.end());
@@ -496,6 +497,16 @@ void handleInput(Scene_t& scene) {
 	if (IsKeyDown(KEY_DOWN)) {
 		scene.sceneTranslation.y -= STEP;
 	}
+	if (IsKeyDown(KEY_L)) {
+		scene.sceneRotationAngle -= .01f;
+	}
+	if (IsKeyDown(KEY_R)) {
+		scene.sceneRotationAngle += .01f;
+	}
+	scene.sceneRotationAngle = std::fmod(scene.sceneRotationAngle, 2.f * PI);
+	if (scene.sceneRotationAngle < 0.f) {
+		scene.sceneRotationAngle += 2.f * PI;
+	}
 	// if (IsKeyDown(KEY_SPACE)) {
 	// 	scene = scene;
 	// }
@@ -618,8 +629,17 @@ void applyCameraTransformations(Vec4_t& V_prime, Scene_t& scene) {
 	// rotateY(vertex, -scene.sceneRotationAngle);
 }
 
-void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected) {
-		DrawWireFrameTriangle(
+void renderTriangle(
+	Triangle_t triangle,
+	const std::vector<Vertex_t>& projected,
+	const std::vector<bool>& vertexInFrontOfNearPlane
+) {
+	if (!vertexInFrontOfNearPlane[triangle.V0] ||
+			!vertexInFrontOfNearPlane[triangle.V1] ||
+			!vertexInFrontOfNearPlane[triangle.V2]) {
+		return;
+	}
+	DrawWireFrameTriangle(
 			projected[triangle.V0].location,
 			projected[triangle.V1].location,
 			projected[triangle.V2].location,
@@ -630,10 +650,11 @@ void renderTriangle(Triangle_t triangle, const std::vector<Vertex_t>& projected)
 void renderEntity(unsigned entityIdx, Scene_t& scene) {
 	Entity_t& entity = scene.entities[entityIdx];
 	std::vector<Vertex_t> projected(entity.shape->vertices.size());
+	std::vector<bool> vertexInFrontOfNearPlane(entity.shape->vertices.size(), false);
 	Vertex_t vertex;
 	mat4x4 transformationMatrix;
 	if (!IsKeyDown(KEY_SPACE)) {
-		entity.angleY = std::fmod(entity.angleY + .01f, 360.f);	// spin baby spin
+		entity.angleY = std::fmod(entity.angleY + .01f, 2.f * PI);	// spin baby spin
 	}
 	computeTransformMatrix(&entity, transformationMatrix);
 	for (size_t i=0; i<entity.shape->vertices.size(); ++i) {
@@ -649,15 +670,19 @@ void renderEntity(unsigned entityIdx, Scene_t& scene) {
 		Vec4_t V_prime;
 		mv_mul(transformationMatrix, vertex, V_prime);
 		applyCameraTransformations(V_prime, scene);
+		if (V_prime.z <= NEAR_PLANE) {
+			continue;
+		}
 		vertex.location.x = V_prime.x;
 		vertex.location.y = V_prime.y;
 		vertex.location.z = V_prime.z;
 
 		projected[i].location = projectVertex(vertex);
 		projected[i].hue = entity.shape->vertices[i].hue;
+		vertexInFrontOfNearPlane[i] = true;
 	}
 	for (size_t i=0; i<entity.shape->triangles.size(); ++i) {
-		renderTriangle(entity.shape->triangles[i], projected);
+		renderTriangle(entity.shape->triangles[i], projected, vertexInFrontOfNearPlane);
 	}
 }
 
@@ -716,4 +741,3 @@ int main(void) {
 	CloseWindow();
 	return 0;
 }
-

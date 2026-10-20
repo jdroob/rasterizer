@@ -1,4 +1,4 @@
-CPP=g++ -std=c++17 -Wall -Wextra -Werror -g
+CPP=g++ -std=c++17 -Wall -Wextra -Werror -O3
 CPPFLAGS=-I./include
 LDFLAGS=-L./lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
