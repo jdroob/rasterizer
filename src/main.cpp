@@ -659,7 +659,6 @@ void renderEntity(unsigned entityIdx, Scene_t& scene) {
 	computeTransformMatrix(&entity, transformationMatrix);
 	for (size_t i=0; i<entity.shape->vertices.size(); ++i) {
 		vertex = entity.shape->vertices[i];
-
 		// // scale
 		// vertex = vertex * entity->scale;
 		// // rotate about y-axis
