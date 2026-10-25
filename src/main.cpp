@@ -384,11 +384,15 @@ Cube_t cube(
 );
 
 // use cube model to draw 4 concrete cubes at 4 different locations
+Entity_t entity0 = {&cube, {-1.5, 1, 7}, DEG2RADS(15.f), 1.5f};
+Entity_t entity1 = {&cube, {1.5, -1, 7}, DEG2RADS(-30.f), .5f};
 Entity_t entities[] = {
-		{&cube, {-1.5, 1, 7}, DEG2RADS(15.f), 1.5f},
+		// {&cube, {-1.5, 1, 7}, DEG2RADS(15.f), 1.5f},
+		entity0,
 		// {&cube, {-1.5, -1, 7}, DEG2RADS(-15.f)},
 		// {&cube, {1.5, 1, 7}, DEG2RADS(30.f)},
-		{&cube, {1.5, -1, 7}, DEG2RADS(-30.f), 0.5f}
+		// {&cube, {1.5, -1, 7}, DEG2RADS(-30.f), 0.5f}
+		entity1
 };
 
 Scene_t scene = 
@@ -498,18 +502,21 @@ void handleInput(Scene_t& scene) {
 		scene.sceneTranslation.y -= STEP;
 	}
 	if (IsKeyDown(KEY_L)) {
-		scene.sceneRotationAngle -= .01f;
+		scene.sceneRotationAngle += .02f;
 	}
 	if (IsKeyDown(KEY_R)) {
-		scene.sceneRotationAngle += .01f;
+		scene.sceneRotationAngle -= .02f;
 	}
 	scene.sceneRotationAngle = std::fmod(scene.sceneRotationAngle, 2.f * PI);
 	if (scene.sceneRotationAngle < 0.f) {
 		scene.sceneRotationAngle += 2.f * PI;
 	}
-	// if (IsKeyDown(KEY_SPACE)) {
-	// 	scene = scene;
-	// }
+	if (IsKeyDown(KEY_SPACE)) {
+		scene.entities[0] = entity0;
+		scene.entities[1] = entity1;
+		scene.sceneRotationAngle = DEG2RADS(-10);
+		scene.sceneTranslation = { -1.f , -1.f, -1.f };
+	}
 }
 
 void computeTransformMatrix(Entity_t *entity, mat4x4& transformationMatrix) {
@@ -594,9 +601,9 @@ void applyCameraTransformations(Vec4_t& V_prime, Scene_t& scene) {
 	// 	{         0, 0,        0, 1},
 	// }
 	rotationMatrix.matrix[0][0] = cos(-scene.sceneRotationAngle);
-	rotationMatrix.matrix[0][2] = sin(-scene.sceneRotationAngle);
+	rotationMatrix.matrix[0][2] = -sin(-scene.sceneRotationAngle);
 	rotationMatrix.matrix[1][1] = 1.f; // preserve Y component
-	rotationMatrix.matrix[2][0] = -sin(-scene.sceneRotationAngle);
+	rotationMatrix.matrix[2][0] = sin(-scene.sceneRotationAngle);
 	rotationMatrix.matrix[2][2] = cos(-scene.sceneRotationAngle);
 	rotationMatrix.matrix[3][3] = 1.f;
 
@@ -670,6 +677,7 @@ void renderEntity(unsigned entityIdx, Scene_t& scene) {
 		mv_mul(transformationMatrix, vertex, V_prime);
 		applyCameraTransformations(V_prime, scene);
 		if (V_prime.z <= NEAR_PLANE) {
+		//if (vertex.location.z <= 0) {		// <- doesn't work b/c this is in model space (e.g.  faces are at z=1 and z=-1)
 			continue;
 		}
 		vertex.location.x = V_prime.x;
